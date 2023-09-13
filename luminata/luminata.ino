@@ -1,10 +1,12 @@
-#include "LEDPatterns.h"
+#include "LEDManager.h"
+
+  
+LEDManager leds; 
+  
 
 void setup() {
 
-
 }
 void loop() {
-
-
+  leds.Update();
 }
