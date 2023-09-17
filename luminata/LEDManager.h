@@ -4,7 +4,7 @@
 #include <FastLED.h>
 
 #define LED_PIN 10
-#define LEDS_PER_LOOP 8
+#define LEDS_PER_LOOP 12
 #define NUM_LEDS LEDS_PER_LOOP * 2
 
 class LEDManager {
@@ -18,11 +18,39 @@ class LEDManager {
     fill_solid(leds, NUM_LEDS, CRGB::Black);
   }
   void update() {
-    RainbowSweep();
+    switch (currentPattern)
+    {
+      case 0:
+        RainbowSweep();
+        break;
+      case 1:
+        WaveringColor();
+        break;
+      case 2:
+        DualRotation();
+        break;
+      default:
+        // default to something nice
+        RainbowSweep();
+        break;
+    }
+  }
+  void changePattern(int newPattern)
+  {
+    // TODO: handle tweening?
+    currentPattern = newPattern;
+  }
+  void setBrightness(int ring, int brightness)
+  {
+    // TODO: implement this so that each ring can have its
+    // brightness controlled individually.
+    // the hs(v) value of each pattern should have some multiplier 
+    // that is updated here.
   }
 
   private:
   CRGB leds[LEDS_PER_LOOP * 2];
+  int currentPattern = 0;
   
   /*
       RAINBOW SWEEP
