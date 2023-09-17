@@ -3,20 +3,21 @@
 
 #include <FastLED.h>
 
-#define LED_PIN 27
+#define LED_PIN 10
 #define LEDS_PER_LOOP 8
 #define NUM_LEDS LEDS_PER_LOOP * 2
 
 class LEDManager {
 
   public:
-  LEDManager() {
+  LEDManager() {}
+  void begin() {
     FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
     FastLED.setBrightness(50);
     FastLED.setCorrection(UncorrectedColor);
     fill_solid(leds, NUM_LEDS, CRGB::Black);
   }
-  void Update(){
+  void update() {
     RainbowSweep();
   }
 
