@@ -20,6 +20,8 @@ const char *ssid = "Luminator";
 const char *password = "password";
   
 LEDManager leds;
+
+NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD> strip(NUM_LEDS, LED_PIN);
 WebApp webApp;
 
 void setup() {
@@ -50,9 +52,10 @@ void setup() {
   // debug via serial
   Serial.begin(115200);
   // LEDs
-  leds.begin();
+  strip.Begin();
+  leds.begin(&strip);
 
-  // boot up sucess, light up blue LED
+  // boot up success, light up blue LED
   digitalWrite(LED_BUILTIN, HIGH);
 }
 
@@ -61,7 +64,7 @@ void loop() {
   // FastLED.delay(10); // TODO: is this neccessary?
 }
 
-#if REQUST_EXAMPLE
+#if REQUEST_EXAMPLE
 void manuallyAddRequestExample()
 {
   AsyncWebServer* server = webApp.getServer();
