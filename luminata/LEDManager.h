@@ -11,13 +11,6 @@
 #define NEOPIXEL_FEATURE NeoRgbwFeature
 #define NEOPIXEL_METHOD Neo800KbpsMethod
 
-DEFINE_GRADIENT_PALETTE(alternateBW_gp){
-  0,0,0,0, //black
-  64,255,255,255, //white
-  128,0,0,0, //black
-  192,255,255,255 //white
-};
-
 CRGBPalette16 palettes[] = {
     PartyColors_p,
     ForestColors_p,
@@ -36,7 +29,6 @@ class LEDManager {
   CRGB leds[NUM_LEDS];
   CRGB innerLeds[LEDS_PER_LOOP];
   CRGB outerLeds[LEDS_PER_LOOP];
-  CRGB halfMask[LEDS_PER_LOOP];
   CRGBPalette16 palette;
   CRGBPalette16 targetPalette;
 
@@ -48,7 +40,7 @@ class LEDManager {
   NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* strip;
 
   //Internal state
-  int currentPattern = 3;
+  int currentPattern = 1;
   uint8_t paletteIndex = 0;
 
   /*
@@ -73,13 +65,13 @@ class LEDManager {
     switch (currentPattern)
     {
       case 0:
-        RainbowSweep();
+        RainbowSwirl();
         break;
       case 1:
-        WaveringColor();
+        Clockwork();
         break;
       case 2:
-        InnerYinYang();
+        RevItUp();
         break;
       case 3:
         Orbital();
@@ -87,9 +79,12 @@ class LEDManager {
       case 4:
         CyclePaletteSwirl();
         break;
+      case 5:
+        EbbAndFlow();
+        break;
       default:
         // default to something nice
-        RainbowSweep();
+        CyclePaletteSwirl();
         break;
     }
     strip->Dirty();
@@ -104,9 +99,11 @@ class LEDManager {
 
   void UpdatePalettes(){
 
-    nblendPaletteTowardPalette(palette, targetPalette, 1);
+    EVERY_N_MILLISECONDS(2){
+      nblendPaletteTowardPalette(palette, targetPalette, 1);
+    }
 
-    EVERY_N_SECONDS(20){
+    EVERY_N_SECONDS(30){
       paletteIndex = (paletteIndex + 1) % numPalettes;
 
       targetPalette = palettes[paletteIndex];
@@ -159,25 +156,44 @@ class LEDManager {
     /*
       PATTERNS
     */
+  void EbbAndFlow(){
 
-  void InnerYinYang(){
-    CRGBPalette16 mask = alternateBW_gp;
+    static uint8_t paletteIndex = 0;
 
-    static uint8_t maskStartIndex = 0;
-    EVERY_N_MILLISECONDS(10){
-      maskStartIndex++;
-    }
-    fill_palette_circular(halfMask, LEDS_PER_LOOP, maskStartIndex, mask, 255, LINEARBLEND);
+    uint8_t brightBeat1 = beatsin8(8, 0, 255, 0, 0);
+    uint8_t brightBeat2 = beatsin8(8, 0, 255, 0, 128);
 
-    static uint8_t paletteStartIndex = 0;
-    EVERY_N_MILLISECONDS(2){
-      //paletteStartIndex++;
-    }
-    fill_solid(innerLeds, LEDS_PER_LOOP, CRGB::Red);
-    //fill_palette_circular(innerLeds, LEDS_PER_LOOP, paletteStartIndex, palette, 255, blendType);
+    brightBeat1 = (brightBeat1 < 128) ? 0 : map(brightBeat1, 128, 255, 0, 255);
+    brightBeat2 = (brightBeat2 < 128) ? 0 : map(brightBeat2, 128, 255, 0, 255);
+
+    fill_palette(innerLeds, LEDS_PER_LOOP, paletteIndex, 0, palette, brightBeat1, blendType);
+    fill_palette(outerLeds, LEDS_PER_LOOP, paletteIndex + 128, 0, palette, brightBeat2, blendType);
     
-    for(int i = 0; i < LEDS_PER_LOOP; i++){
-     innerLeds[i] -= halfMask[i];
+    EVERY_N_MILLISECONDS(150){
+      paletteIndex++;
+    }
+
+    DualToSingle();
+  }
+  
+  void RevItUp(){
+
+    int loopLeds = int(LEDS_PER_LOOP);
+    uint8_t posBeat = beatsin8(7, 0, loopLeds * 6, 0, 0) % loopLeds;
+
+
+    uint8_t posBeat2 = (posBeat + (loopLeds)/2) % loopLeds;
+    uint8_t brightBeat = beatsin8(14, 0, 255, 0, 64);
+
+    static uint8_t paletteIndex = 0;
+    innerLeds[posBeat] = ColorFromPalette(palette, paletteIndex, brightBeat, blendType);
+
+    EVERY_N_MILLISECONDS(100){
+      paletteIndex++;
+    }
+
+    EVERY_N_MILLISECONDS(10){
+      fadeToBlackBy(innerLeds, LEDS_PER_LOOP, 1);
     }
     
 
@@ -212,111 +228,60 @@ class LEDManager {
     DualToSingle();
   }
   
-  /*
-      RAINBOW SWEEP
-  */
-  uint8_t _rainbowHue = 0;
-  void RainbowSweep() {
-    for(int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CHSV(_rainbowHue + (i * 10), 255, 255);
-    }
+  void RainbowSwirl() {
+    targetPalette = RainbowColors_p;
+
+    static uint8_t paletteIndex = 0;
+    
+    fill_palette(leds, NUM_LEDS, paletteIndex, 3, palette, 255, blendType);
 
     EVERY_N_MILLISECONDS(5){
-      _rainbowHue++;
-    }
-
-    strip->Dirty();
-  }
-
-  /*
-      WAVERING COLOR
-  */
-  void WaveringColor(){
-    EVERY_N_MILLISECONDS(100) {
-      leds[0] = CHSV(160, random8(100,255), random8(100,255));
-
-      for(int i = NUM_LEDS - 1; i > 0; i--){
-        leds[i] = leds[i-1];
-      }
-
-      FastLED.show();
+      paletteIndex++;
     }
   }
 
-  /*
-      DUAL ROTATION
-  */
-  int _innerRotIdx = 0;
-  int _outerRotIdx = 0;
-  void DualRotation(){
+  void Clockwork(){
+    static int innerIndex = 0;
+    static int outerIndex = 0;
 
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    static uint8_t paletteIndex = 0;
     int subdivisions = 1;
-
-    //Inner loop
+    
+    //Inner
     EVERY_N_MILLISECONDS(100){
-      _innerRotIdx = (_innerRotIdx + 1) % LEDS_PER_LOOP;
-    }
-    for(int i = 0; i < subdivisions; i++){
-      int rotIdx = (_innerRotIdx +  (i * LEDS_PER_LOOP / subdivisions)) % LEDS_PER_LOOP;
-      int ledIdx = rotIdx* 2 + 1;
-      leds[ledIdx] = CRGB::Red;
-    }
-  
-    //Outer loop
-    EVERY_N_MILLISECONDS(1000){
-      _outerRotIdx -= 1;
-      if(_outerRotIdx < LEDS_PER_LOOP){
-        _outerRotIdx += LEDS_PER_LOOP;
-      }
-    }
-    subdivisions = 4;
-    for(int i = 0; i < subdivisions; i++){
-      int rotIdx = (_outerRotIdx +  (i * LEDS_PER_LOOP / subdivisions)) % LEDS_PER_LOOP;
-      int ledIdx = rotIdx* 2;
-      leds[ledIdx] = CRGB::Green;
+      innerIndex -= 1;
+      if(innerIndex < 0) innerIndex = (LEDS_PER_LOOP / subdivisions) - 1;
     }
 
-    FastLED.show();
+    //Outer
+    EVERY_N_MILLISECONDS(100){
+      outerIndex = (outerIndex + 1) % (LEDS_PER_LOOP / subdivisions);
+    }
+    
+
+    
+    for(int i = innerIndex; i < LEDS_PER_LOOP; i += LEDS_PER_LOOP/subdivisions){
+      innerLeds[i] = ColorFromPalette(palette, paletteIndex + 32, 255, blendType);
+    }
+    for(int i = outerIndex; i < LEDS_PER_LOOP; i += LEDS_PER_LOOP/subdivisions){
+        outerLeds[i] = ColorFromPalette(palette, paletteIndex, 255, blendType);
+    }
+
+    EVERY_N_MILLISECONDS(2){
+      blur1d(innerLeds, LEDS_PER_LOOP, 50);
+      blur1d(outerLeds, LEDS_PER_LOOP, 50);
+      fadeToBlackBy(innerLeds, LEDS_PER_LOOP, 1);
+      fadeToBlackBy(outerLeds, LEDS_PER_LOOP, 1);
+    }
+
+    EVERY_N_MILLISECONDS(100){
+      paletteIndex++;
+    }
+
+    DualToSingle();
+
+    
   }
-
-  /*
-      TEST COLOR CORRECTION
-  */
-  void TestColorCorrection(){
-    fill_solid(leds, NUM_LEDS, CRGB::White);
-
-    FastLED.setCorrection(UncorrectedColor);
-    leds[0] = CRGB::Red;
-    FastLED.show();
-    delay(3000);
-
-    FastLED.setCorrection(TypicalLEDStrip);
-    leds[0] = CRGB::Green;
-    FastLED.show();
-    delay(3000);
-
-    FastLED.setCorrection(TypicalPixelString);
-    leds[0] = CRGB::Blue;
-    FastLED.show();
-    delay(3000);
-  }
-
-  void HeatmapPalette(){
-    //fill_palette_circular(leds, NUM_LEDS, paletteIndex, OceanColors_p, 50, LINEARBLEND);
-    FastLED.show();
-  }
-
-
-
-
-/*
-  public:
-  void Update(uint32_t millis);
-
-  private:
-  void SetPixel(int loopID, int idx); 
-  */
 };
 
 #endif
