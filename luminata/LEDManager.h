@@ -11,6 +11,20 @@
 #define NEOPIXEL_FEATURE NeoRgbwFeature
 #define NEOPIXEL_METHOD Neo800KbpsMethod
 
+DEFINE_GRADIENT_PALETTE(alternateBW_gp){
+  0,0,0,0, //black
+  64,255,255,255, //white
+  128,0,0,0, //black
+  192,255,255,255 //white
+};
+
+CRGBPalette16 palettes[] = {
+    PartyColors_p,
+    ForestColors_p,
+    OceanColors_p,
+    LavaColors_p,
+    RainbowColors_p
+};
 
 class LEDManager {
    
@@ -20,14 +34,22 @@ class LEDManager {
   private:
   //FastLED
   CRGB leds[NUM_LEDS];
-  CRGB innerLeds[NUM_LEDS/2];
-  CRGB outerLeds[NUM_LEDS/2];
+  CRGB innerLeds[LEDS_PER_LOOP];
+  CRGB outerLeds[LEDS_PER_LOOP];
+  CRGB halfMask[LEDS_PER_LOOP];
+  CRGBPalette16 palette;
+  CRGBPalette16 targetPalette;
+
+  uint8_t numPalettes = 5;
+ 
+  TBlendType blendType;
 
   //NeoPixelBus
   NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* strip;
 
   //Internal state
-  int currentPattern = 0;
+  int currentPattern = 3;
+  uint8_t paletteIndex = 0;
 
   /*
       METHODS
@@ -37,11 +59,16 @@ class LEDManager {
   
   void begin(NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* stripRef) {
     strip = stripRef;
+    palette = palettes[0];
+    targetPalette = palettes[0];
+    blendType = LINEARBLEND;
     fill_solid(leds, NUM_LEDS, CRGB::Black);
     strip->Dirty();
   }
 
   void update() {
+
+    UpdatePalettes();
     
     switch (currentPattern)
     {
@@ -52,10 +79,13 @@ class LEDManager {
         WaveringColor();
         break;
       case 2:
-        DualRotation();
+        InnerYinYang();
         break;
       case 3:
-        HeatmapPalette();
+        Orbital();
+        break;
+      case 4:
+        CyclePaletteSwirl();
         break;
       default:
         // default to something nice
@@ -70,6 +100,17 @@ class LEDManager {
       }
     }
     strip->Show();
+  }
+
+  void UpdatePalettes(){
+
+    nblendPaletteTowardPalette(palette, targetPalette, 1);
+
+    EVERY_N_SECONDS(20){
+      paletteIndex = (paletteIndex + 1) % numPalettes;
+
+      targetPalette = palettes[paletteIndex];
+    }
   }
 
   RgbwColor CRGBToRgbwColor(CRGB color) {
@@ -102,6 +143,74 @@ class LEDManager {
     // the hs(v) value of each pattern should have some multiplier 
     // that is updated here.
   }
+
+  void DualToSingle(){
+    //Outer
+    for(int i = 0; i < LEDS_PER_LOOP; i++){
+      leds[i*2] = outerLeds[i];
+    }
+
+    //Inner
+    for(int i = 0; i < LEDS_PER_LOOP; i++){
+      leds[i*2 + 1] = innerLeds[i];
+    }
+  }
+
+    /*
+      PATTERNS
+    */
+
+  void InnerYinYang(){
+    CRGBPalette16 mask = alternateBW_gp;
+
+    static uint8_t maskStartIndex = 0;
+    EVERY_N_MILLISECONDS(10){
+      maskStartIndex++;
+    }
+    fill_palette_circular(halfMask, LEDS_PER_LOOP, maskStartIndex, mask, 255, LINEARBLEND);
+
+    static uint8_t paletteStartIndex = 0;
+    EVERY_N_MILLISECONDS(2){
+      //paletteStartIndex++;
+    }
+    fill_solid(innerLeds, LEDS_PER_LOOP, CRGB::Red);
+    //fill_palette_circular(innerLeds, LEDS_PER_LOOP, paletteStartIndex, palette, 255, blendType);
+    
+    for(int i = 0; i < LEDS_PER_LOOP; i++){
+     innerLeds[i] -= halfMask[i];
+    }
+    
+
+    DualToSingle();
+  }
+
+  void CyclePaletteSwirl(){
+
+    static uint8_t startIndex = 0;
+
+    EVERY_N_MILLISECONDS(65){
+      startIndex++;
+    }
+
+    uint8_t colorIndex = startIndex;
+
+    for(int i = 0; i < NUM_LEDS; i++){
+      leds[i] = ColorFromPalette(palette, colorIndex, 255, blendType);
+      colorIndex += 1;
+    }
+  }
+
+  void Orbital(){
+    EVERY_N_MILLISECONDS(100){
+      outerLeds[random8(0, LEDS_PER_LOOP)] = ColorFromPalette(palette, random8(), 255, blendType);
+    }
+
+    EVERY_N_MILLISECONDS(3){
+      fadeToBlackBy(outerLeds, LEDS_PER_LOOP,1);
+    }
+
+    DualToSingle();
+  }
   
   /*
       RAINBOW SWEEP
@@ -112,7 +221,7 @@ class LEDManager {
       leds[i] = CHSV(_rainbowHue + (i * 10), 255, 255);
     }
 
-    EVERY_N_MILLISECONDS(15){
+    EVERY_N_MILLISECONDS(5){
       _rainbowHue++;
     }
 
@@ -192,12 +301,14 @@ class LEDManager {
     FastLED.show();
     delay(3000);
   }
-  uint8_t paletteIndex = 0;
 
   void HeatmapPalette(){
     //fill_palette_circular(leds, NUM_LEDS, paletteIndex, OceanColors_p, 50, LINEARBLEND);
     FastLED.show();
   }
+
+
+
 
 /*
   public:
