@@ -40,7 +40,7 @@ class LEDManager {
   NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* strip;
 
   //Internal state
-  int currentPattern = 1;
+  int currentPattern = 5;
   uint8_t paletteIndex = 0;
 
   /*
@@ -68,7 +68,7 @@ class LEDManager {
         RainbowSwirl();
         break;
       case 1:
-        Clockwork();
+        DuelingDragons();
         break;
       case 2:
         RevItUp();
@@ -96,6 +96,31 @@ class LEDManager {
     }
     strip->Show();
   }
+
+  void changePattern(int newPattern)
+  {
+    // TODO: handle tweening?
+    currentPattern = newPattern;
+  }
+  void setBrightness(int brightness)
+  {
+    // TODO: implement this so that each ring can have its
+    // brightness controlled individually.
+    // the hs(v) value of each pattern should have some multiplier 
+    // that is updated here.
+
+    //TODO
+  }
+
+  void setBlendType(int blendType){
+
+  }
+
+  void setPalette(int paletteIndex){
+    //TODO
+  }
+
+  private:
 
   void UpdatePalettes(){
 
@@ -128,18 +153,6 @@ class LEDManager {
       );
 }
 
-  void changePattern(int newPattern)
-  {
-    // TODO: handle tweening?
-    currentPattern = newPattern;
-  }
-  void setBrightness(int ring, int brightness)
-  {
-    // TODO: implement this so that each ring can have its
-    // brightness controlled individually.
-    // the hs(v) value of each pattern should have some multiplier 
-    // that is updated here.
-  }
 
   void DualToSingle(){
     //Outer
@@ -163,8 +176,9 @@ class LEDManager {
     uint8_t brightBeat1 = beatsin8(8, 0, 255, 0, 0);
     uint8_t brightBeat2 = beatsin8(8, 0, 255, 0, 128);
 
-    brightBeat1 = (brightBeat1 < 128) ? 0 : map(brightBeat1, 128, 255, 0, 255);
-    brightBeat2 = (brightBeat2 < 128) ? 0 : map(brightBeat2, 128, 255, 0, 255);
+    int threshold = 96;
+    brightBeat1 = (brightBeat1 < threshold) ? 0 : map(brightBeat1, threshold, 255, 0, 255);
+    brightBeat2 = (brightBeat2 < threshold) ? 0 : map(brightBeat2, threshold, 255, 0, 255);
 
     fill_palette(innerLeds, LEDS_PER_LOOP, paletteIndex, 0, palette, brightBeat1, blendType);
     fill_palette(outerLeds, LEDS_PER_LOOP, paletteIndex + 128, 0, palette, brightBeat2, blendType);
@@ -193,6 +207,7 @@ class LEDManager {
     }
 
     EVERY_N_MILLISECONDS(10){
+      blur1d(outerLeds, LEDS_PER_LOOP, 50);
       fadeToBlackBy(innerLeds, LEDS_PER_LOOP, 1);
     }
     
@@ -240,7 +255,7 @@ class LEDManager {
     }
   }
 
-  void Clockwork(){
+  void DuelingDragons(){
     static int innerIndex = 0;
     static int outerIndex = 0;
 
@@ -254,11 +269,9 @@ class LEDManager {
     }
 
     //Outer
-    EVERY_N_MILLISECONDS(100){
+    EVERY_N_MILLISECONDS(135){
       outerIndex = (outerIndex + 1) % (LEDS_PER_LOOP / subdivisions);
     }
-    
-
     
     for(int i = innerIndex; i < LEDS_PER_LOOP; i += LEDS_PER_LOOP/subdivisions){
       innerLeds[i] = ColorFromPalette(palette, paletteIndex + 32, 255, blendType);
@@ -268,8 +281,6 @@ class LEDManager {
     }
 
     EVERY_N_MILLISECONDS(2){
-      blur1d(innerLeds, LEDS_PER_LOOP, 50);
-      blur1d(outerLeds, LEDS_PER_LOOP, 50);
       fadeToBlackBy(innerLeds, LEDS_PER_LOOP, 1);
       fadeToBlackBy(outerLeds, LEDS_PER_LOOP, 1);
     }
