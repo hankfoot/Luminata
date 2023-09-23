@@ -35,13 +35,29 @@ void setup() {
 
   // lambda callback for global brightness
   webApp.registerCallback("/brightness", "value", [](int value) {
-    FastLED.setBrightness(value);
+    leds.setBrightness(value);
   });
 
   // lambda callback for pattern
   webApp.registerCallback("/pattern", "value", [](int value) {
     leds.changePattern(value);
   });
+
+  // lambda callback for blend
+  webApp.registerCallback("/blend", "value", [](int value) {
+    leds.setBlendType(value);
+  });
+
+  // lambda callback for palette
+  webApp.registerCallback("/palette", "value", [](int value) {
+    leds.setPalette(value);
+  });
+
+  // lambda callback for mode
+  // TODO: implement
+  // webApp.registerCallback("/mode", "value", [](int value) {
+  //   leds.setMode(value);
+  // });
 
   // software peripherals
   // filesystem for web server (/data directory)
