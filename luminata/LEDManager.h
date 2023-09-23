@@ -25,12 +25,27 @@ class LEDManager {
       VARIABLES
   */
   private:
-  //FastLED
-  CRGB leds[NUM_LEDS];
-  CRGB innerLeds[LEDS_PER_LOOP];
-  CRGB outerLeds[LEDS_PER_LOOP];
+  //FastLED Full Arrays
+  CRGB source1[NUM_LEDS];
+  CRGB source2[NUM_LEDS];
+  CRGB output[NUM_LEDS];
+
+  //FastLED Half Arrays
+  CRGB source1InnerLeds[LEDS_PER_LOOP];
+  CRGB source1OuterLeds[LEDS_PER_LOOP];
+  CRGB source2InnerLeds[LEDS_PER_LOOP];
+  CRGB source2OuterLeds[LEDS_PER_LOOP];
+
+  //FastLED Palettes
   CRGBPalette16 palette;
   CRGBPalette16 targetPalette;
+
+  //Blending
+  uint8_t blendAmount = 0;
+  uint8_t currentPattern = 5;
+  uint8_t source1Pattern = 0;
+  uint8_t source2Pattern = 1;
+  bool useSource1 = false;
 
   uint8_t numPalettes = 5;
  
@@ -40,7 +55,7 @@ class LEDManager {
   NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* strip;
 
   //Internal state
-  int currentPattern = 5;
+  uint8_t numPatterns = 6;
   uint8_t paletteIndex = 0;
 
   /*
@@ -54,44 +69,18 @@ class LEDManager {
     palette = palettes[0];
     targetPalette = palettes[0];
     blendType = LINEARBLEND;
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(output, NUM_LEDS, CRGB::Black);
     strip->Dirty();
   }
 
   void update() {
 
     UpdatePalettes();
-    
-    switch (currentPattern)
-    {
-      case 0:
-        RainbowSwirl();
-        break;
-      case 1:
-        DuelingDragons();
-        break;
-      case 2:
-        RevItUp();
-        break;
-      case 3:
-        Orbital();
-        break;
-      case 4:
-        CyclePaletteSwirl();
-        break;
-      case 5:
-        EbbAndFlow();
-        break;
-      default:
-        // default to something nice
-        CyclePaletteSwirl();
-        break;
-    }
-    strip->Dirty();
-    
+    UpdatePatterns();
+
     if(strip->IsDirty() == true){
       for (uint8_t i=0; i<NUM_LEDS; i++) {
-        strip->SetPixelColor(i, CRGBToRgbwColor(leds[i]).Dim(BRIGHTNESS));
+        strip->SetPixelColor(i, CRGBToRgbwColor(output[i]).Dim(BRIGHTNESS));
       }
     }
     strip->Show();
@@ -99,9 +88,26 @@ class LEDManager {
 
   void changePattern(int newPattern)
   {
-    // TODO: handle tweening?
+    if(newPattern >= numPatterns) return;
+
     currentPattern = newPattern;
+
+    if(useSource1){
+      source1Pattern = currentPattern;
+      fill_solid(source1, NUM_LEDS, CRGB::Black);
+      fill_solid(source1InnerLeds, LEDS_PER_LOOP, CRGB::Black);
+      fill_solid(source1OuterLeds, LEDS_PER_LOOP, CRGB::Black);
+    }
+    else{
+      source2Pattern = currentPattern;
+      fill_solid(source2, NUM_LEDS, CRGB::Black);
+      fill_solid(source2InnerLeds, LEDS_PER_LOOP, CRGB::Black);
+      fill_solid(source2OuterLeds, LEDS_PER_LOOP, CRGB::Black);
+    }
+
+    useSource1 = !useSource1;
   }
+
   void setBrightness(int brightness)
   {
     // TODO: implement this so that each ring can have its
@@ -113,11 +119,12 @@ class LEDManager {
   }
 
   void setBlendType(int blendType){
-
+    //TODO
   }
 
   void setPalette(int paletteIndex){
-    //TODO
+    if(paletteIndex > numPalettes) return;
+    targetPalette = palettes[paletteIndex];
   }
 
   private:
@@ -127,13 +134,69 @@ class LEDManager {
     EVERY_N_MILLISECONDS(2){
       nblendPaletteTowardPalette(palette, targetPalette, 1);
     }
-
+    
+    //Auto-update
+    /*
     EVERY_N_SECONDS(30){
-      paletteIndex = (paletteIndex + 1) % numPalettes;
+      setPalette((paletteIndex + 1) % numPalettes);
+    }
+    */
+  }
 
-      targetPalette = palettes[paletteIndex];
+  void UpdatePatterns(){
+
+    //Auto-update
+    /*
+    EVERY_N_SECONDS(10){
+      changePattern((currentPattern + 1) % numPatterns);
+    }
+    */
+    
+    
+    EVERY_N_MILLISECONDS(10) {
+      blend(source1, source2, output, NUM_LEDS, blendAmount);   // Blend between the two sources
+
+      if (useSource1) {
+        if (blendAmount < 255) blendAmount++;                   // blendAmount 'up' to source 2
+      } else {
+        if (blendAmount > 0) blendAmount--;                     // blendAmount 'down' to source 1
+      }
+    }
+
+    RunPattern(source1Pattern, source1, source1InnerLeds, source1OuterLeds);
+    RunPattern(source2Pattern, source2, source2InnerLeds, source2OuterLeds);
+
+    strip->Dirty();
+  }
+
+  void RunPattern(uint8_t pattern, CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
+    switch (pattern)
+    {
+      case 0:
+        RainbowSwirl(leds);
+        break;
+      case 1:
+        DuelingDragons(leds, innerLeds, outerLeds);
+        break;
+      case 2:
+        RevItUp(leds, innerLeds, outerLeds);
+        break;
+      case 3:
+        Orbital(leds, innerLeds, outerLeds);
+        break;
+      case 4:
+        CyclePaletteSwirl(leds);
+        break;
+      case 5:
+        EbbAndFlow(leds, innerLeds, outerLeds);
+        break;
+      default:
+        //default to something nice
+        CyclePaletteSwirl(leds);
+        break;
     }
   }
+
 
   RgbwColor CRGBToRgbwColor(CRGB color) {
 
@@ -151,10 +214,10 @@ class LEDManager {
           color_g_float / maxFastLedValue,
           color_b_float / maxFastLedValue)
       );
-}
+  }
 
 
-  void DualToSingle(){
+  void DualToSingle(CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
     //Outer
     for(int i = 0; i < LEDS_PER_LOOP; i++){
       leds[i*2] = outerLeds[i];
@@ -169,7 +232,7 @@ class LEDManager {
     /*
       PATTERNS
     */
-  void EbbAndFlow(){
+  void EbbAndFlow(CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
 
     static uint8_t paletteIndex = 0;
 
@@ -187,10 +250,10 @@ class LEDManager {
       paletteIndex++;
     }
 
-    DualToSingle();
+    DualToSingle(leds, innerLeds, outerLeds);
   }
   
-  void RevItUp(){
+  void RevItUp(CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
 
     int loopLeds = int(LEDS_PER_LOOP);
     uint8_t posBeat = beatsin8(7, 0, loopLeds * 6, 0, 0) % loopLeds;
@@ -212,10 +275,10 @@ class LEDManager {
     }
     
 
-    DualToSingle();
+    DualToSingle(leds, innerLeds, outerLeds);
   }
 
-  void CyclePaletteSwirl(){
+  void CyclePaletteSwirl(CRGB *leds){
 
     static uint8_t startIndex = 0;
 
@@ -231,7 +294,7 @@ class LEDManager {
     }
   }
 
-  void Orbital(){
+  void Orbital(CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
     EVERY_N_MILLISECONDS(100){
       outerLeds[random8(0, LEDS_PER_LOOP)] = ColorFromPalette(palette, random8(), 255, blendType);
     }
@@ -240,10 +303,10 @@ class LEDManager {
       fadeToBlackBy(outerLeds, LEDS_PER_LOOP,1);
     }
 
-    DualToSingle();
+    DualToSingle(leds, innerLeds, outerLeds);
   }
   
-  void RainbowSwirl() {
+  void RainbowSwirl(CRGB *leds) {
     targetPalette = RainbowColors_p;
 
     static uint8_t paletteIndex = 0;
@@ -255,7 +318,7 @@ class LEDManager {
     }
   }
 
-  void DuelingDragons(){
+  void DuelingDragons(CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
     static int innerIndex = 0;
     static int outerIndex = 0;
 
@@ -289,9 +352,7 @@ class LEDManager {
       paletteIndex++;
     }
 
-    DualToSingle();
-
-    
+    DualToSingle(leds, innerLeds, outerLeds);
   }
 };
 
