@@ -12,11 +12,12 @@
 #define NEOPIXEL_METHOD Neo800KbpsMethod
 
 CRGBPalette16 palettes[] = {
-    PartyColors_p,
+    CRGBPalette16(CRGB::White),
     ForestColors_p,
     OceanColors_p,
     LavaColors_p,
-    RainbowColors_p
+    CloudColors_p,
+    PartyColors_p
 };
 
 class LEDManager {
@@ -42,12 +43,14 @@ class LEDManager {
 
   //Blending
   uint8_t blendAmount = 0;
-  uint8_t currentPattern = 5;
-  uint8_t source1Pattern = 0;
-  uint8_t source2Pattern = 1;
+  uint8_t currentPattern;
+  uint8_t source1Pattern;
+  uint8_t source2Pattern;
   bool useSource1 = false;
 
-  uint8_t numPalettes = 5;
+  uint8_t numPalettes = 6;
+
+  uint8_t brightness;
  
   TBlendType blendType;
 
@@ -55,8 +58,9 @@ class LEDManager {
   NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* strip;
 
   //Internal state
-  uint8_t numPatterns = 6;
-  uint8_t paletteIndex = 0;
+  uint8_t numPatterns = 6; //First two are boring!
+  uint8_t paletteIndex;
+  bool wasInBaseState;
 
   /*
       METHODS
@@ -65,10 +69,13 @@ class LEDManager {
   LEDManager() {}
   
   void begin(NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* stripRef) {
+    Serial.println("Begin");
     strip = stripRef;
     palette = palettes[0];
-    targetPalette = palettes[0];
+    setPalette(0);
+    changePattern(0);
     blendType = LINEARBLEND;
+    brightness = BRIGHTNESS;
     fill_solid(output, NUM_LEDS, CRGB::Black);
     strip->Dirty();
   }
@@ -77,10 +84,11 @@ class LEDManager {
 
     UpdatePalettes();
     UpdatePatterns();
+    AutoAdvance();
 
     if(strip->IsDirty() == true){
       for (uint8_t i=0; i<NUM_LEDS; i++) {
-        strip->SetPixelColor(i, CRGBToRgbwColor(output[i]).Dim(BRIGHTNESS));
+        strip->SetPixelColor(i, CRGBToRgbwColor(output[i]).Dim(brightness));
       }
     }
     strip->Show();
@@ -89,6 +97,8 @@ class LEDManager {
   void changePattern(int newPattern)
   {
     if(newPattern >= numPatterns) return;
+
+    wasInBaseState = (newPattern == 0);
 
     currentPattern = newPattern;
 
@@ -106,52 +116,64 @@ class LEDManager {
     }
 
     useSource1 = !useSource1;
+
+    Serial.print("Change pattern to: ");
+    Serial.println(currentPattern);
   }
 
-  void setBrightness(int brightness)
+  void setBrightness(int newBrightness)
   {
-    // TODO: implement this so that each ring can have its
-    // brightness controlled individually.
-    // the hs(v) value of each pattern should have some multiplier 
-    // that is updated here.
-
-    //TODO
+    brightness = newBrightness;
   }
 
   void setBlendType(int blendType){
     //TODO
   }
 
-  void setPalette(int paletteIndex){
+  void setPalette(int newPaletteIndex){
     if(paletteIndex > numPalettes) return;
+    
+    paletteIndex = newPaletteIndex;
     targetPalette = palettes[paletteIndex];
+    Serial.print("Change palette to: ");
+    Serial.println(paletteIndex);
   }
 
   private:
 
   void UpdatePalettes(){
-
-    EVERY_N_MILLISECONDS(2){
+    EVERY_N_MILLISECONDS(1){
       nblendPaletteTowardPalette(palette, targetPalette, 1);
     }
-    
-    //Auto-update
-    /*
-    EVERY_N_SECONDS(30){
-      setPalette((paletteIndex + 1) % numPalettes);
-    }
-    */
   }
 
-  void UpdatePatterns(){
+  void AutoAdvance(){
 
-    //Auto-update
-    /*
-    EVERY_N_SECONDS(10){
-      changePattern((currentPattern + 1) % numPatterns);
+    static uint8_t funPatternIndex = 2;
+
+    //Patterns
+    EVERY_N_SECONDS(15){
+
+      if(wasInBaseState){
+        funPatternIndex = funPatternIndex + 1;
+        if(funPatternIndex >= numPatterns){
+          funPatternIndex = 2;
+        }
+        changePattern(funPatternIndex);
+      }
+      else{
+        changePattern(0);
+      }
     }
-    */
-    
+
+    //Palettes
+    EVERY_N_SECONDS(30){
+      //Cycle through palettes linearly
+      setPalette((paletteIndex + 1) % numPalettes);
+    }
+  }
+
+  void UpdatePatterns(){ 
     
     EVERY_N_MILLISECONDS(10) {
       blend(source1, source2, output, NUM_LEDS, blendAmount);   // Blend between the two sources
@@ -172,11 +194,11 @@ class LEDManager {
   void RunPattern(uint8_t pattern, CRGB *leds, CRGB* innerLeds, CRGB* outerLeds){
     switch (pattern)
     {
-      case 0:
-        RainbowSwirl(leds);
+      case 0:      
+        CyclePaletteSwirl(leds);
         break;
       case 1:
-        DuelingDragons(leds, innerLeds, outerLeds);
+        RainbowSwirl(leds);
         break;
       case 2:
         RevItUp(leds, innerLeds, outerLeds);
@@ -185,10 +207,10 @@ class LEDManager {
         Orbital(leds, innerLeds, outerLeds);
         break;
       case 4:
-        CyclePaletteSwirl(leds);
+        EbbAndFlow(leds, innerLeds, outerLeds);
         break;
       case 5:
-        EbbAndFlow(leds, innerLeds, outerLeds);
+        DuelingDragons(leds, innerLeds, outerLeds);
         break;
       default:
         //default to something nice
@@ -307,11 +329,9 @@ class LEDManager {
   }
   
   void RainbowSwirl(CRGB *leds) {
-    targetPalette = RainbowColors_p;
-
     static uint8_t paletteIndex = 0;
     
-    fill_palette(leds, NUM_LEDS, paletteIndex, 3, palette, 255, blendType);
+    fill_palette(leds, NUM_LEDS, paletteIndex, 3, RainbowColors_p, 255, blendType);
 
     EVERY_N_MILLISECONDS(5){
       paletteIndex++;
