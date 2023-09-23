@@ -4,7 +4,12 @@
 #include <NeoPixelBus.h>
 #include <NPBColorLib.h>
 
-#define LED_PIN 27
+#if ARDUINO_FEATHERS3
+#define LED_PIN 8 // UM Feather S3, Stemma QT (LDO1)
+#else
+#define LED_PIN 27 // Huzzah ESP32
+#endif
+
 #define NUM_LEDS 24
 #define BRIGHTNESS 64
 #define LEDS_PER_LOOP NUM_LEDS/2
