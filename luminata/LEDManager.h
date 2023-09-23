@@ -48,6 +48,8 @@ class LEDManager {
   uint8_t source2Pattern;
   bool useSource1 = false;
 
+  bool shouldAutoAdvance = true;
+
   uint8_t numPalettes = 6;
 
   uint8_t brightness;
@@ -58,8 +60,9 @@ class LEDManager {
   NeoPixelBus<NEOPIXEL_FEATURE, NEOPIXEL_METHOD>* strip;
 
   //Internal state
-  uint8_t numPatterns = 6; //First two are boring!
+  uint8_t numPatterns = 6;
   uint8_t paletteIndex;
+  uint8_t funPatternIndex;
   bool wasInBaseState;
 
   /*
@@ -72,8 +75,8 @@ class LEDManager {
     Serial.println("Begin");
     strip = stripRef;
     palette = palettes[0];
-    setPalette(0);
-    changePattern(0);
+    setPalette(0, false);
+    changePattern(0, false);
     blendType = LINEARBLEND;
     brightness = BRIGHTNESS;
     fill_solid(output, NUM_LEDS, CRGB::Black);
@@ -84,7 +87,9 @@ class LEDManager {
 
     UpdatePalettes();
     UpdatePatterns();
-    AutoAdvance();
+    if(shouldAutoAdvance){
+      AutoAdvance();
+    }
 
     if(strip->IsDirty() == true){
       for (uint8_t i=0; i<NUM_LEDS; i++) {
@@ -94,9 +99,13 @@ class LEDManager {
     strip->Show();
   }
 
-  void changePattern(int newPattern)
+  void changePattern(int newPattern, bool interruptAutoAdvance)
   {
     if(newPattern >= numPatterns) return;
+
+    if(interruptAutoAdvance){
+      setAutoAdvance(1);
+    }
 
     wasInBaseState = (newPattern == 0);
 
@@ -126,17 +135,35 @@ class LEDManager {
     brightness = newBrightness;
   }
 
-  void setBlendType(int blendType){
-    //TODO
+  void setBlendType(int newBlendType){
+    switch(newBlendType){
+      case 0:
+        blendType = LINEARBLEND;
+        break;
+      case 1:
+        blendType = NOBLEND;
+        break;
+      default:
+        blendType = LINEARBLEND;
+        break;
+    }
   }
 
-  void setPalette(int newPaletteIndex){
+  void setPalette(int newPaletteIndex, bool interruptAutoAdvance){
     if(paletteIndex > numPalettes) return;
+
+    if(interruptAutoAdvance){
+      setAutoAdvance(1);
+    }
     
     paletteIndex = newPaletteIndex;
     targetPalette = palettes[paletteIndex];
     Serial.print("Change palette to: ");
     Serial.println(paletteIndex);
+  }
+
+  void setAutoAdvance(int value){
+    shouldAutoAdvance = (value == 0);
   }
 
   private:
@@ -149,27 +176,25 @@ class LEDManager {
 
   void AutoAdvance(){
 
-    static uint8_t funPatternIndex = 2;
-
     //Patterns
     EVERY_N_SECONDS(15){
 
       if(wasInBaseState){
         funPatternIndex = funPatternIndex + 1;
         if(funPatternIndex >= numPatterns){
-          funPatternIndex = 2;
+          funPatternIndex = 1; // Skips swirl
         }
-        changePattern(funPatternIndex);
+        changePattern(funPatternIndex, false);
       }
       else{
-        changePattern(0);
+        changePattern(0, false);
       }
     }
 
     //Palettes
     EVERY_N_SECONDS(30){
       //Cycle through palettes linearly
-      setPalette((paletteIndex + 1) % numPalettes);
+      setPalette((paletteIndex + 1) % numPalettes, false);
     }
   }
 

@@ -40,7 +40,7 @@ void setup() {
 
   // lambda callback for pattern
   webApp.registerCallback("/pattern", "value", [](int value) {
-    leds.changePattern(value);
+    leds.changePattern(value, true);
   });
 
   // lambda callback for blend
@@ -50,14 +50,13 @@ void setup() {
 
   // lambda callback for palette
   webApp.registerCallback("/palette", "value", [](int value) {
-    leds.setPalette(value);
+    leds.setPalette(value, true);
   });
 
   // lambda callback for mode
-  // TODO: implement
-  // webApp.registerCallback("/mode", "value", [](int value) {
-  //   leds.setMode(value);
-  // });
+  webApp.registerCallback("/mode", "value", [](int value) {
+    leds.setAutoAdvance(value);
+  });
 
   // software peripherals
   // filesystem for web server (/data directory)
