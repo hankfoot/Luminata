@@ -12,11 +12,11 @@
         }
 
         h2 {
-            font-size: 2.3rem;
+            font-size: 1.4rem;
         }
 
         p {
-            font-size: 1.9rem;
+            font-size: 1.0rem;
         }
 
         body {
@@ -54,24 +54,110 @@
 
         .patternButtons {
             border: 0;
-            line-height: 2.5;
+            line-height: 1.8;
             padding: 0 20px;
-            font-size: x-large;
+            font-size: large;
             color: #fff;
             border-radius: 10px;
             background-color: rgb(0, 131, 246);
+        }
+
+        .patternButtons:active {
+            background-color: rgb(0, 88, 165);
+        }
+
+        .paletteButtons {
+            border: 0;
+            line-height: 1.8;
+            padding: 0 20px;
+            font-size: large;
+            color: #fff;
+            border-radius: 10px;
+            background-color: rgb(214, 38, 223);
+        }
+
+        .paletteButtons:active {
+            background-color: rgb(168, 27, 175);
+        }
+
+        .blendButtons {
+            border: 0;
+            line-height: 1.8;
+            padding: 0 20px;
+            margin-left: 10px;
+            margin-right: 10px;
+            font-size: large;
+            color: #fff;
+            border-radius: 10px;
+            background-color: rgb(147, 191, 24);
+        }
+
+        .blendButtons:active {
+            background-color: rgb(103, 132, 21);
+        }
+
+        .modeButtons {
+            border: 0;
+            line-height: 1.8;
+            padding: 0 20px;
+            margin-left: 10px;
+            margin-right: 10px;
+            font-size: large;
+            color: #fff;
+            border-radius: 10px;
+            background-color: rgb(191, 138, 24);
+        }
+
+        .modeButtons:active {
+            background-color: rgb(115, 87, 15);
+        }
+
+        .column {
+            float: left;
+            width: 50%;
+        }
+
+        /* Clear floats after the columns */
+        .row:after {
+            content: "";
+            display: table;
+            clear: both;
         }
     </style>
 </head>
 
 <body>
     <h2>Luminator Controller</h2>
-    <p><span id="ledBrightnessText">50</span></p>
-    <p><input type="range" oninput="updateBrightness(this)" id="ledBrightness" min="0" max="255" value="50" step="1"
+    <p>Brightness: <span id="ledBrightnessText">64</span></p>
+    <p><input type="range" oninput="updateBrightness(this)" id="ledBrightness" min="0" max="255" value="64" step="1"
             class="slider"></p>
-    <p><button onclick="changePattern(this, 0)" class="patternButtons">Rainbow</button></p>
-    <p><button onclick="changePattern(this, 1)" class="patternButtons">Wavering</button></p>
-    <p><button onclick="changePattern(this, 2)" class="patternButtons">DualRotation</button></p>
+    <p>Mode</p>
+    <p><button onclick="changeMode(this, 0)" class="modeButtons">Auto-switch</button>
+        <button onclick="changeMode(this, 1)" class="modeButtons">Keep</button>
+    </p>
+    <div class="row">
+        <div class="column">
+            <p>Patterns</p>
+            <p><button onclick="changePattern(this, 0)" class="patternButtons">Rainbow Swirl</button></p>
+            <p><button onclick="changePattern(this, 1)" class="patternButtons">Dueling Dragons</button></p>
+            <p><button onclick="changePattern(this, 2)" class="patternButtons">Rev it up</button></p>
+            <p><button onclick="changePattern(this, 3)" class="patternButtons">Orbital</button></p>
+            <p><button onclick="changePattern(this, 4)" class="patternButtons">Swirl</button></p>
+            <p><button onclick="changePattern(this, 5)" class="patternButtons">Ebb & Flow</button></p>
+        </div>
+        <div class="column">
+            <p>Palette</p>
+            <p><button onclick="changePalette(this, 0)" class="paletteButtons">Party</button></p>
+            <p><button onclick="changePalette(this, 1)" class="paletteButtons">Forest</button></p>
+            <p><button onclick="changePalette(this, 2)" class="paletteButtons">Ocean</button></p>
+            <p><button onclick="changePalette(this, 3)" class="paletteButtons">Lava</button></p>
+            <p><button onclick="changePalette(this, 4)" class="paletteButtons">Rainbow</button></p>
+        </div>
+    </div>
+    <p>Blend</p>
+    <p><button onclick="changeBlend(this, 0)" class="blendButtons">Linear</button>
+        <button onclick="changeBlend(this, 1)" class="blendButtons">No Blend</button>
+    </p>
     <script>
         function updateBrightness(element) {
             var sliderValue = document.getElementById("ledBrightness").value;
@@ -81,9 +167,24 @@
             xhr.open("GET", "/brightness?value=" + sliderValue, true);
             xhr.send();
         }
-        function changePattern(element, patternNumber) {
+        function changePattern(element, number) {
             var xhr = new XMLHttpRequest();
-            xhr.open("GET", "/pattern?value=" + patternNumber, true);
+            xhr.open("GET", "/pattern?value=" + number, true);
+            xhr.send();
+        }
+        function changePalette(element, number) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/palette?value=" + number, true);
+            xhr.send();
+        }
+        function changeBlend(element, number) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/blend?value=" + number, true);
+            xhr.send();
+        }
+        function changeMode(element, number) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/mode?value=" + number, true);
             xhr.send();
         }
     </script>
